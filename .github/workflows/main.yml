@@ -33,12 +33,14 @@ jobs:
       run: |
         cmake -S llvm-project/libcxxabi -B build_libcxxabi \
           -G Ninja \
+          -U LIBCXXABI_USE_LLVM_UNWINDER \
           -DCMAKE_TOOLCHAIN_FILE=$NDK_PATH/build/cmake/android.toolchain.cmake \
           -DANDROID_ABI=$ABI \
           -DANDROID_PLATFORM=$ANDROID_API \
           -DCMAKE_BUILD_TYPE=Release \
           -DLIBCXXABI_ENABLE_SHARED=ON \
           -DLIBCXXABI_USE_COMPILER_RT=ON \
+          -DLIBCXXABI_USE_LLVM_UNWINDER=OFF \
           -DCMAKE_SHARED_LINKER_FLAGS="-Wl,-z,max-page-size=0x4000"
         cmake --build build_libcxxabi
 
@@ -46,7 +48,6 @@ jobs:
       run: |
         cmake -S llvm-project/libcxx -B build_libcxx \
           -G Ninja \
-          -U LIBCXXABI_USE_LLVM_UNWINDER \
           -DCMAKE_TOOLCHAIN_FILE=$NDK_PATH/build/cmake/android.toolchain.cmake \
           -DANDROID_ABI=$ABI \
           -DANDROID_PLATFORM=$ANDROID_API \
@@ -54,7 +55,6 @@ jobs:
           -DLIBCXX_ENABLE_SHARED=ON \
           -DLIBCXX_ENABLE_STATIC=OFF \
           -DLIBCXX_CXX_ABI=libcxxabi \
-          -DLIBCXXABI_USE_LLVM_UNWINDER=OFF \
           -DLIBCXXABI_LIBCXXABI_LIBRARY=$(pwd)/build_libcxxabi/libc++abi.so \
           -DLIBCXXABI_LIBCXXABI_INCLUDE_PATHS=$(pwd)/llvm-project/libcxxabi/include \
           -DCMAKE_SHARED_LINKER_FLAGS="-Wl,-z,max-page-size=0x4000" \
