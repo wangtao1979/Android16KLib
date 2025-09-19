@@ -53,6 +53,7 @@ jobs:
           -DLIBCXX_ENABLE_SHARED=ON \
           -DLIBCXX_ENABLE_STATIC=OFF \
           -DLIBCXX_CXX_ABI=libcxxabi \
+          -DLIBCXXABI_USE_LLVM_UNWINDER=OFF \
           -DLIBCXXABI_LIBCXXABI_LIBRARY=$(pwd)/build_libcxxabi/libc++abi.so \
           -DLIBCXXABI_LIBCXXABI_INCLUDE_PATHS=$(pwd)/llvm-project/libcxxabi/include \
           -DCMAKE_SHARED_LINKER_FLAGS="-Wl,-z,max-page-size=0x4000" \
