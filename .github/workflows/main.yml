@@ -46,6 +46,7 @@ jobs:
       run: |
         cmake -S llvm-project/libcxx -B build_libcxx \
           -G Ninja \
+          -U LIBCXXABI_USE_LLVM_UNWINDER \
           -DCMAKE_TOOLCHAIN_FILE=$NDK_PATH/build/cmake/android.toolchain.cmake \
           -DANDROID_ABI=$ABI \
           -DANDROID_PLATFORM=$ANDROID_API \
