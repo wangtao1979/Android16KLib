@@ -60,7 +60,7 @@ jobs:
         cmake --build build_libcxx
 
     - name: Upload artifact
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: libc++_shared_16k
         path: build_libcxx/lib/cxx/libc++_shared.so
