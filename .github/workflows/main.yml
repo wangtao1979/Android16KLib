@@ -37,17 +37,18 @@ jobs:
 
     - name: Configure CMake (armeabi-v7a)
       run: |
-        # 路径定义
+        # 路径定义 (保持不变)
         TOOLCHAIN_ROOT="$HOME/android-ndk/toolchains/llvm/prebuilt/linux-x86_64"
         TARGET_TRIPLE="arm-linux-androideabi"
         SYSROOT="$TOOLCHAIN_ROOT/sysroot"
-        BIONIC_INCLUDE_PATH="$SYSROOT/usr/include"
         CC="$TOOLCHAIN_ROOT/bin/${TARGET_TRIPLE}${ANDROID_API}-clang"
         CXX="$TOOLCHAIN_ROOT/bin/${TARGET_TRIPLE}${ANDROID_API}-clang++"
 
-        # 核心修复：将 Bionic 头文件路径添加到 C/CXX 编译器的 Include 搜索路径中
-        C_FLAGS="-fPIC -Wno-cast-qual -Wno-error -isystem $BIONIC_INCLUDE_PATH -include <stddef.h>"
-        CXX_FLAGS="-fPIC -Wno-cast-qual -Wno-error -isystem $BIONIC_INCLUDE_PATH -include <stddef.h>"
+        # 编译标志：仅保留用于解决 libc++abi 问题的标志
+        # 移除 -isystem 和 -include，让 NDK 自行处理 size_t
+        C_FLAGS="-fPIC -Wno-cast-qual -Wno-error"
+        # 保留 -DLIBCXX_NO_EXCEPTIONS=ON 
+        CXX_FLAGS="-fPIC -Wno-cast-qual -Wno-error" 
         
         cmake -S llvm-project/runtimes -B "$BUILD_DIR" \
           -G Ninja \
