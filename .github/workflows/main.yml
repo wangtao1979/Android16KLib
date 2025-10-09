@@ -37,14 +37,14 @@ jobs:
 
     - name: Configure CMake (armeabi-v7a)
       run: |
-        # 路径定义 (保持不变)
+        # 路径定义
         TOOLCHAIN_ROOT="$HOME/android-ndk/toolchains/llvm/prebuilt/linux-x86_64"
         TARGET_TRIPLE="arm-linux-androideabi"
         SYSROOT="$TOOLCHAIN_ROOT/sysroot"
         CC="$TOOLCHAIN_ROOT/bin/${TARGET_TRIPLE}${ANDROID_API}-clang"
         CXX="$TOOLCHAIN_ROOT/bin/${TARGET_TRIPLE}${ANDROID_API}-clang++"
 
-        # C/CXX 编译标志：保持精简
+        # C/CXX 编译标志
         C_FLAGS="-fPIC -Wno-cast-qual -Wno-error"
         CXX_FLAGS="-fPIC -Wno-cast-qual -Wno-error"
         
@@ -67,12 +67,8 @@ jobs:
           -DLIBCXX_USE_COMPILER_RT_FOR_LIBC=ON \
           -DLIBCXX_NO_EXCEPTIONS=ON \
           -DLIBCXX_INCLUDE_TESTS=OFF \
-          
-          # ==== 核心修复：解决 strcmp/memcpy 缺失问题 ====
           -DLIBCXX_HAVE_C_LIB_FUNCTIONS=OFF \
           -DLIBCXX_HAS_MUSL_LIBC=ON \
-          # ===================================================
-          
           -DCMAKE_C_FLAGS="$C_FLAGS" \
           -DCMAKE_CXX_FLAGS="$CXX_FLAGS" \
           -DCMAKE_SHARED_LINKER_FLAGS="-Wl,-z,max-page-size=0x4000"
