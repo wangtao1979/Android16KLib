@@ -35,8 +35,9 @@ jobs:
         unzip android-ndk-${NDK_VERSION}-linux-x86_64.zip
         mv android-ndk-${NDK_VERSION} $HOME/android-ndk
         
-    - name: Configure CMake (armeabi-v7a)
+- name: Configure CMake (armeabi-v7a)
       run: |
+        # 路径定义
         TOOLCHAIN_ROOT="$HOME/android-ndk/toolchains/llvm/prebuilt/linux-x86_64"
         TARGET_TRIPLE="arm-linux-androideabi"
         SYSROOT="$TOOLCHAIN_ROOT/sysroot"
@@ -44,8 +45,11 @@ jobs:
         CC="$TOOLCHAIN_ROOT/bin/${TARGET_TRIPLE}${ANDROID_API}-clang"
         CXX="$TOOLCHAIN_ROOT/bin/${TARGET_TRIPLE}${ANDROID_API}-clang++"
 
+        # C 编译标志：仅使用必需的宏和 -isystem
         C_FLAGS="-fPIC -Wno-cast-qual -Wno-error -isystem $BIONIC_INCLUDE_PATH -D_BSD_SOURCE"
-        CXX_FLAGS="-fPIC -Wno-cast-qual -Wno-error -isystem $BIONIC_INCLUDE_PATH -D__USE_MINGW_ANSI_STDIO=1 -D_BSD_SOURCE -include <stddef.h>"
+        
+        # CXX 编译标志：仅使用必需的宏和 -isystem。移除 -include <stddef.h>
+        CXX_FLAGS="-fPIC -Wno-cast-qual -Wno-error -isystem $BIONIC_INCLUDE_PATH -D__USE_MINGW_ANSI_STDIO=1 -D_BSD_SOURCE"
         
         cmake -S llvm-project/runtimes -B "$BUILD_DIR" \
           -G Ninja \
