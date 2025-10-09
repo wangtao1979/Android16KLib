@@ -1,62 +1,59 @@
-name: Build libc++_shared armeabi-v7a (16KB aligned)
+name: Build libc++_shared v7a 16K
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
   build:
     runs-on: ubuntu-latest
+
     env:
       NDK_VERSION: r21d
+      ABI: armeabi-v7a
       ANDROID_API: 21
-      ANDROID_ABI: armeabi-v7a
-      ALIGNMENT: 16384
 
     steps:
-    - name: Checkout repository
+    - name: Checkout LLVM
       uses: actions/checkout@v4
+      with:
+        repository: llvm/llvm-project
+        ref: llvmorg-17.0.6  # 或者你想要的版本
+        path: llvm-project
+
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install -y ninja-build cmake unzip curl
 
     - name: Download NDK
       run: |
-        wget https://dl.google.com/android/repository/android-ndk-${{ env.NDK_VERSION }}-linux-x86_64.zip
-        unzip android-ndk-${{ env.NDK_VERSION }}-linux-x86_64.zip -d $HOME
-        mv $HOME/android-ndk-${{ env.NDK_VERSION }} $HOME/android-ndk
-
-    - name: Set NDK environment
-      run: |
-        export ANDROID_NDK_HOME=$HOME/android-ndk
-        export PATH=$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH
-        echo "ANDROID_NDK_HOME=$ANDROID_NDK_HOME" >> $GITHUB_ENV
-        echo "$ANDROID_NDK_HOME/toolchains/llvm/prebuilt/linux-x86_64/bin" >> $GITHUB_PATH
-
-    - name: Create build directory
-      run: mkdir -p build-armeabi-v7a
+        curl -LO https://dl.google.com/android/repository/android-ndk-${NDK_VERSION}-linux-x86_64.zip
+        unzip android-ndk-${NDK_VERSION}-linux.zip
+        mv android-ndk-${NDK_VERSION} $HOME/android-ndk
 
     - name: Configure CMake
       run: |
-        cmake -B build-armeabi-v7a \
-          -DCMAKE_TOOLCHAIN_FILE=$ANDROID_NDK_HOME/build/cmake/android.toolchain.cmake \
-          -DANDROID_ABI=${{ env.ANDROID_ABI }} \
-          -DANDROID_PLATFORM=android-${{ env.ANDROID_API }} \
-          -DANDROID_STL=c++_shared \
+        cmake -S llvm-project/runtimes -B build \
+          -G Ninja \
+          -DCMAKE_TOOLCHAIN_FILE=$HOME/android-ndk/build/cmake/android.toolchain.cmake \
+          -DANDROID_ABI=$ABI \
+          -DANDROID_PLATFORM=$ANDROID_API \
           -DCMAKE_BUILD_TYPE=Release \
-          -DLIBCXXABI_ENABLE_SHARED=ON \
+          -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi" \
           -DLIBCXX_ENABLE_SHARED=ON \
-          -DLIBCXXABI_USE_LLVM_UNWINDER=ON \
-          -DLIBCXX_ENABLE_EXPERIMENTAL_LIBRARY=OFF
+          -DLIBCXX_ENABLE_STATIC=OFF \
+          -DLIBCXXABI_USE_LLVM_UNWINDER=OFF \
+          -DCMAKE_SHARED_LINKER_FLAGS="-Wl,-z,max-page-size=0x4000" \
+          -DCMAKE_CXX_FLAGS="-fPIC"
 
-    - name: Build libc++_shared
-      run: cmake --build build-armeabi-v7a --target cxx_shared -- -j$(nproc)
+    - name: Build
+      run: cmake --build build
 
-    - name: Align .so to 16KB
-      run: |
-        mkdir -p aligned
-        for f in build-armeabi-v7a/lib/*.so; do
-          llvm-objcopy --segment-alignment=${{ env.ALIGNMENT }} "$f" "aligned/$(basename $f)"
-        done
-
-    - name: Upload artifact
+    - name: Package artifact
       uses: actions/upload-artifact@v4
       with:
-        name: libcxx_shared_armeabi-v7a_16kb
-        path: aligned/
+        name: libcxx-v7a-16k
+        path: build/**/*.so
