@@ -35,7 +35,7 @@ jobs:
         unzip android-ndk-${NDK_VERSION}-linux-x86_64.zip
         mv android-ndk-${NDK_VERSION} $HOME/android-ndk
 
-- name: Configure CMake (armeabi-v7a)
+    - name: Configure CMake (armeabi-v7a)
       run: |
         # 路径定义
         TOOLCHAIN_ROOT=$HOME/android-ndk/toolchains/llvm/prebuilt/linux-x86_64
