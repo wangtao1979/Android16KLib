@@ -15,7 +15,6 @@ jobs:
       ABI: armeabi-v7a
       ANDROID_API: 21
       BUILD_DIR: build
-      NDK_ROOT: $HOME/android-ndk # 定义 NDK 路径
 
     steps:
     - name: Checkout LLVM
@@ -34,20 +33,13 @@ jobs:
       run: |
         curl -LO https://dl.google.com/android/repository/android-ndk-${NDK_VERSION}-linux-x86_64.zip
         unzip android-ndk-${NDK_VERSION}-linux-x86_64.zip
-        mv android-ndk-${NDK_VERSION} ${NDK_ROOT}
+        mv android-ndk-${NDK_VERSION} $HOME/android-ndk
 
     - name: Configure CMake (armeabi-v7a)
       run: |
-        # 确定工具链、编译器和sysroot路径
+        # 确定工具链和sysroot路径
         TOOLCHAIN_ROOT=$HOME/android-ndk/toolchains/llvm/prebuilt/linux-x86_64
-        TARGET_TRIPLE=arm-linux-androideabi
-        
-        # 完整的sysroot路径
         SYSROOT=$TOOLCHAIN_ROOT/sysroot
-        
-        # 完整的编译器路径
-        CC=$TOOLCHAIN_ROOT/bin/${TARGET_TRIPLE}${ANDROID_API}-clang
-        CXX=$TOOLCHAIN_ROOT/bin/${TARGET_TRIPLE}${ANDROID_API}-clang++
 
         cmake -S llvm-project/runtimes -B $BUILD_DIR \
           -G Ninja \
@@ -55,9 +47,6 @@ jobs:
           -DANDROID_ABI=$ABI \
           -DANDROID_PLATFORM=$ANDROID_API \
           -DCMAKE_BUILD_TYPE=Release \
-          -DCMAKE_C_COMPILER=$CC \
-          -DCMAKE_CXX_COMPILER=$CXX \
-          -DCMAKE_SYSROOT=$SYSROOT \
           -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi" \
           -DLIBCXX_ENABLE_SHARED=ON \
           -DLIBCXX_ENABLE_STATIC=OFF \
@@ -68,7 +57,8 @@ jobs:
           -DLIBCXX_INCLUDE_TESTS=OFF \
           -DCMAKE_C_FLAGS="-fPIC -Wno-cast-qual -Wno-error" \
           -DCMAKE_CXX_FLAGS="-fPIC -Wno-cast-qual -Wno-error" \
-          -DCMAKE_SHARED_LINKER_FLAGS="-Wl,-z,max-page-size=0x4000"
+          -DCMAKE_SHARED_LINKER_FLAGS="-Wl,-z,max-page-size=0x4000" \
+          -DCMAKE_SYSROOT=$SYSROOT
 
     - name: Build libc++_shared
       run: cmake --build $BUILD_DIR --target cxxabi_shared cxx_shared -j$(nproc)
