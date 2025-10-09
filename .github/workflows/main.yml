@@ -12,7 +12,7 @@ jobs:
 
     env:
       # 推荐使用较新的稳定版 NDK
-      NDK_VERSION: 25.2.9519653 # 或 r25c, r26b 等
+      NDK_VERSION: r21d # 或 r25c, r26b 等
       ABI: armeabi-v7a
       ANDROID_API: 21
       BUILD_DIR: build
@@ -35,8 +35,8 @@ jobs:
     - name: Download NDK
       run: |
         # 针对 NDK 25.2.9519653 的下载链接
-        curl -LO https://dl.google.com/android/repository/android-ndk-r${NDK_VERSION}-linux.zip
-        unzip android-ndk-r${NDK_VERSION}-linux.zip -d $HOME
+        curl -LO https://dl.google.com/android/repository/android-ndk-r${NDK_VERSION}-linux-x86_64.zip
+        unzip android-ndk-r${NDK_VERSION}-linux-x86_64.zip -d $HOME
         mv $HOME/android-ndk-r${NDK_VERSION} $NDK_ROOT
         # 清理 zip 包
         rm android-ndk-r${NDK_VERSION}-linux.zip
