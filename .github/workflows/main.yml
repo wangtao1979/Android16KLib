@@ -1,68 +1,59 @@
-name: Build libc++_shared.so (16K) for Android
+name: Build libc++_shared v7a 16K
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - main
 
 jobs:
-  build-libcxx:
+  build:
     runs-on: ubuntu-latest
+
     env:
+      NDK_VERSION: r26b
+      ABI: armeabi-v7a
       ANDROID_API: 21
-      ABI: arm64-v8a
 
     steps:
-    - name: Checkout source
-      uses: actions/checkout@v3
+    - name: Checkout LLVM
+      uses: actions/checkout@v4
+      with:
+        repository: llvm/llvm-project
+        ref: llvmorg-17.0.6  # 或者你想要的版本
+        path: llvm-project
 
     - name: Install dependencies
-      run: sudo apt-get update && sudo apt-get install -y cmake ninja-build git wget unzip
-
-    - name: Download latest Android NDK
       run: |
-        NDK_VERSION=r26b
-        wget https://dl.google.com/android/repository/android-ndk-$NDK_VERSION-linux.zip -O ndk.zip
-        unzip ndk.zip -d $HOME/android-ndk
-        echo "NDK_PATH=$HOME/android-ndk/android-ndk-$NDK_VERSION" >> $GITHUB_ENV
+        sudo apt-get update
+        sudo apt-get install -y ninja-build cmake unzip curl
 
-    - name: Clone LLVM libc++ & libc++abi
+    - name: Download NDK
       run: |
-        git clone https://github.com/llvm/llvm-project.git llvm-project --depth 1
-        mkdir build_libcxxabi build_libcxx
+        curl -LO https://dl.google.com/android/repository/android-ndk-${NDK_VERSION}-linux.zip
+        unzip android-ndk-${NDK_VERSION}-linux.zip
+        mv android-ndk-${NDK_VERSION} $HOME/android-ndk
 
-    - name: Build libc++abi
+    - name: Configure CMake
       run: |
-        cmake -S llvm-project/libcxxabi -B build_libcxxabi \
+        cmake -S llvm-project/runtimes -B build \
           -G Ninja \
-          -U LIBCXXABI_USE_LLVM_UNWINDER \
-          -DCMAKE_TOOLCHAIN_FILE=$NDK_PATH/build/cmake/android.toolchain.cmake \
+          -DCMAKE_TOOLCHAIN_FILE=$HOME/android-ndk/build/cmake/android.toolchain.cmake \
           -DANDROID_ABI=$ABI \
           -DANDROID_PLATFORM=$ANDROID_API \
           -DCMAKE_BUILD_TYPE=Release \
-          -DLIBCXXABI_ENABLE_SHARED=ON \
-          -DLIBCXXABI_USE_COMPILER_RT=ON \
-          -DLIBCXXABI_USE_LLVM_UNWINDER=OFF \
-          -DCMAKE_SHARED_LINKER_FLAGS="-Wl,-z,max-page-size=0x4000"
-        cmake --build build_libcxxabi
-
-    - name: Build libc++_shared.so
-      run: |
-        cmake -S llvm-project/libcxx -B build_libcxx \
-          -G Ninja \
-          -DCMAKE_TOOLCHAIN_FILE=$NDK_PATH/build/cmake/android.toolchain.cmake \
-          -DANDROID_ABI=$ABI \
-          -DANDROID_PLATFORM=$ANDROID_API \
-          -DCMAKE_BUILD_TYPE=Release \
+          -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi" \
           -DLIBCXX_ENABLE_SHARED=ON \
           -DLIBCXX_ENABLE_STATIC=OFF \
-          -DLIBCXX_CXX_ABI=libcxxabi \
-          -DLIBCXXABI_LIBCXXABI_LIBRARY=$(pwd)/build_libcxxabi/libc++abi.so \
-          -DLIBCXXABI_LIBCXXABI_INCLUDE_PATHS=$(pwd)/llvm-project/libcxxabi/include \
+          -DLIBCXXABI_USE_LLVM_UNWINDER=OFF \
           -DCMAKE_SHARED_LINKER_FLAGS="-Wl,-z,max-page-size=0x4000" \
           -DCMAKE_CXX_FLAGS="-fPIC"
-        cmake --build build_libcxx
 
-    - name: Upload artifact
+    - name: Build
+      run: cmake --build build
+
+    - name: Package artifact
       uses: actions/upload-artifact@v4
       with:
-        name: libc++_shared_16k
-        path: build_libcxx/lib/cxx/libc++_shared.so
+        name: libcxx-v7a-16k
+        path: build/**/*.so
