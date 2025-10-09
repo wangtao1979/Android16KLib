@@ -38,44 +38,26 @@ jobs:
 
     - name: Configure CMake (armeabi-v7a)
       run: |
-             # 再次明确设置 NDK_ROOT 环境变量，以防万一
-        export NDK_ROOT=${{ env.NDK_ROOT }}
-
-        # NDK r21d 的工具链路径
-        export TOOLCHAIN_PATH="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin"
-        export TRIPLE="armv7a-linux-androideabi"
-        export CLANG_TARGET_PREFIX="$TRIPLE$ANDROID_API"
-
-        # 尝试 r21d 典型的命名方式: target-api-clang
-        export CC="$TOOLCHAIN_PATH/$CLANG_TARGET_PREFIX-clang"
-        export CXX="$TOOLCHAIN_PATH/$CLANG_TARGET_PREFIX-clang++"
-
-        # 如果上述命名不工作，回退到通用命名 (NDK r21d 也有可能是这种)
-        if [ ! -f "$CC" ]; then
-          echo "Specific target Clang not found, trying generic clang."
-          export CC="$TOOLCHAIN_PATH/clang"
-          export CXX="$TOOLCHAIN_PATH/clang++"
-        fi
-
-        # 验证编译器路径
-        ls -F "$CC" || { echo "C Compiler not found at $CC !"; exit 1; }
-        ls -F "$CXX" || { echo "CXX Compiler not found at $CXX !"; exit 1; }
-
-        export AR="$TOOLCHAIN_PATH/llvm-ar"
-        export RANLIB="$TOOLCHAIN_PATH/llvm-ranlib"
-        export STRIP="$TOOLCHAIN_PATH/llvm-strip"
-
-        # NDK r21d 的 sysroot 路径
-        export SYSROOT="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot"
-
-        mkdir -p $BUILD_DIR
+        # 确定工具链、编译器和sysroot路径
+        TOOLCHAIN_ROOT=$HOME/android-ndk/toolchains/llvm/prebuilt/linux-x86_64
+        TARGET_TRIPLE=arm-linux-androideabi
         
+        # 完整的sysroot路径
+        SYSROOT=$TOOLCHAIN_ROOT/sysroot
+        
+        # 完整的编译器路径
+        CC=$TOOLCHAIN_ROOT/bin/${TARGET_TRIPLE}${ANDROID_API}-clang
+        CXX=$TOOLCHAIN_ROOT/bin/${TARGET_TRIPLE}${ANDROID_API}-clang++
+
         cmake -S llvm-project/runtimes -B $BUILD_DIR \
           -G Ninja \
-          -DCMAKE_TOOLCHAIN_FILE=$NDK_ROOT/build/cmake/android.toolchain.cmake \
+          -DCMAKE_TOOLCHAIN_FILE=$HOME/android-ndk/build/cmake/android.toolchain.cmake \
           -DANDROID_ABI=$ABI \
           -DANDROID_PLATFORM=$ANDROID_API \
           -DCMAKE_BUILD_TYPE=Release \
+          -DCMAKE_C_COMPILER=$CC \
+          -DCMAKE_CXX_COMPILER=$CXX \
+          -DCMAKE_SYSROOT=$SYSROOT \
           -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi" \
           -DLIBCXX_ENABLE_SHARED=ON \
           -DLIBCXX_ENABLE_STATIC=OFF \
@@ -87,19 +69,6 @@ jobs:
           -DCMAKE_C_FLAGS="-fPIC -Wno-cast-qual -Wno-error" \
           -DCMAKE_CXX_FLAGS="-fPIC -Wno-cast-qual -Wno-error" \
           -DCMAKE_SHARED_LINKER_FLAGS="-Wl,-z,max-page-size=0x4000"
-          -DCMAKE_SYSTEM_NAME=Android \
-          -DCMAKE_SYSTEM_VERSION="$ANDROID_API" \
-          -DCMAKE_ANDROID_ARCH_ABI="$ABI" \
-          -DCMAKE_ANDROID_NDK="$NDK_ROOT" \
-          -DCMAKE_ANDROID_STANDALONE_TOOLCHAIN="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64" \
-          -DCMAKE_SYSROOT="$SYSROOT" \
-          -DCMAKE_C_COMPILER_TARGET="$TRIPLE" \
-          -DCMAKE_CXX_COMPILER_TARGET="$TRIPLE" \
-          -DCMAKE_CROSSCOMPILE=TRUE \
-          -DLLVM_DEFAULT_TARGET_TRIPLE="$TRIPLE" \
-          -DLIBCXX_ENABLE_LITE_MODE=ON \
-          -DCMAKE_C_COMPILER="$CC" \
-          -DCMAKE_CXX_COMPILER="$CXX" # 显式传递编译器路径给 CMake
 
     - name: Build libc++_shared
       run: cmake --build $BUILD_DIR --target cxxabi_shared cxx_shared -j$(nproc)
