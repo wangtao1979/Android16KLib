@@ -34,7 +34,7 @@ jobs:
       run: |
         curl -LO https://dl.google.com/android/repository/android-ndk-${NDK_VERSION}-linux-x86_64.zip
         unzip android-ndk-${NDK_VERSION}-linux-x86_64.zip
-        mv android-ndk-${NDK_VERSION} $NDK_ROOT
+        mv android-ndk-${NDK_VERSION} ${NDK_ROOT}
 
     - name: Configure CMake (armeabi-v7a)
       run: |
