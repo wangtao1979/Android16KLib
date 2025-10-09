@@ -45,10 +45,11 @@ jobs:
         CC="$TOOLCHAIN_ROOT/bin/${TARGET_TRIPLE}${ANDROID_API}-clang"
         CXX="$TOOLCHAIN_ROOT/bin/${TARGET_TRIPLE}${ANDROID_API}-clang++"
 
-        # C/CXX 编译标志：
-        # -isystem: 解决 C 函数可见性 (strcmp)
-        # -include <stddef.h>: 强制定义 size_t, 解决头文件循环依赖问题
-        C_FLAGS="-fPIC -Wno-cast-qual -Wno-error -isystem $BIONIC_INCLUDE_PATH -D_BSD_SOURCE -include <stddef.h>"
+        # C 编译标志：移除 -include <stddef.h>，让 C 编译器测试通过
+        # 保留 -isystem 和 -D_BSD_SOURCE 
+        C_FLAGS="-fPIC -Wno-cast-qual -Wno-error -isystem $BIONIC_INCLUDE_PATH -D_BSD_SOURCE"
+        
+        # CXX 编译标志：保留 -include <stddef.h>，用于解决 libc++ 编译时的 size_t 缺失
         CXX_FLAGS="-fPIC -Wno-cast-qual -Wno-error -isystem $BIONIC_INCLUDE_PATH -D__USE_MINGW_ANSI_STDIO=1 -D_BSD_SOURCE -include <stddef.h>"
         
         cmake -S llvm-project/runtimes -B "$BUILD_DIR" \
