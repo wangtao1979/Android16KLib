@@ -44,11 +44,9 @@ jobs:
         CC="$TOOLCHAIN_ROOT/bin/${TARGET_TRIPLE}${ANDROID_API}-clang"
         CXX="$TOOLCHAIN_ROOT/bin/${TARGET_TRIPLE}${ANDROID_API}-clang++"
 
-        # 编译标志：仅保留用于解决 libc++abi 问题的标志
-        # 移除 -isystem 和 -include，让 NDK 自行处理 size_t
+        # C/CXX 编译标志：保持精简
         C_FLAGS="-fPIC -Wno-cast-qual -Wno-error"
-        # 保留 -DLIBCXX_NO_EXCEPTIONS=ON 
-        CXX_FLAGS="-fPIC -Wno-cast-qual -Wno-error" 
+        CXX_FLAGS="-fPIC -Wno-cast-qual -Wno-error"
         
         cmake -S llvm-project/runtimes -B "$BUILD_DIR" \
           -G Ninja \
@@ -69,6 +67,12 @@ jobs:
           -DLIBCXX_USE_COMPILER_RT_FOR_LIBC=ON \
           -DLIBCXX_NO_EXCEPTIONS=ON \
           -DLIBCXX_INCLUDE_TESTS=OFF \
+          
+          # ==== 核心修复：解决 strcmp/memcpy 缺失问题 ====
+          -DLIBCXX_HAVE_C_LIB_FUNCTIONS=OFF \
+          -DLIBCXX_HAS_MUSL_LIBC=ON \
+          # ===================================================
+          
           -DCMAKE_C_FLAGS="$C_FLAGS" \
           -DCMAKE_CXX_FLAGS="$CXX_FLAGS" \
           -DCMAKE_SHARED_LINKER_FLAGS="-Wl,-z,max-page-size=0x4000"
