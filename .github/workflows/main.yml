@@ -1,4 +1,4 @@
-name: Build libc++_shared 16K
+name: Build libc++_shared v7a 16K
 
 on:
   workflow_dispatch:
@@ -10,21 +10,17 @@ jobs:
   build:
     runs-on: ubuntu-latest
 
-    strategy:
-      matrix:
-        abi: [armeabi-v7a, arm64-v8a]
-        ndk_version: [r21d]
-
     env:
+      NDK_VERSION: r21d
+      ABI: armeabi-v7a
       ANDROID_API: 21
-      LLVM_VERSION: llvmorg-12.0.0
 
     steps:
     - name: Checkout LLVM
       uses: actions/checkout@v4
       with:
         repository: llvm/llvm-project
-        ref: ${{ env.LLVM_VERSION }}
+        ref: llvmorg-12.0.0
         path: llvm-project
 
     - name: Install dependencies
@@ -34,39 +30,31 @@ jobs:
 
     - name: Download NDK
       run: |
-        curl -LO https://dl.google.com/android/repository/android-ndk-${{ matrix.ndk_version }}-linux-x86_64.zip
-        unzip android-ndk-${{ matrix.ndk_version }}-linux-x86_64.zip
-        mv android-ndk-${{ matrix.ndk_version }} $HOME/android-ndk
+        curl -LO https://dl.google.com/android/repository/android-ndk-${NDK_VERSION}-linux-x86_64.zip
+        unzip android-ndk-${NDK_VERSION}-linux-x86_64.zip
+        mv android-ndk-${NDK_VERSION} $HOME/android-ndk
 
     - name: Configure CMake
       run: |
-        cmake -S llvm-project/runtimes -B build-${{ matrix.abi }} \
+        cmake -S llvm-project/runtimes -B build \
           -G Ninja \
           -DCMAKE_TOOLCHAIN_FILE=$HOME/android-ndk/build/cmake/android.toolchain.cmake \
-          -DANDROID_ABI=${{ matrix.abi }} \
+          -DANDROID_ABI=$ABI \
           -DANDROID_PLATFORM=$ANDROID_API \
           -DCMAKE_BUILD_TYPE=Release \
           -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi" \
           -DLIBCXX_ENABLE_SHARED=ON \
           -DLIBCXX_ENABLE_STATIC=OFF \
           -DLIBCXXABI_USE_LLVM_UNWINDER=OFF \
-          -DLLVM_TARGETS_TO_BUILD="" \
-          -DLLVM_ENABLE_PROJECTS="" \
           -DCMAKE_SHARED_LINKER_FLAGS="-Wl,-z,max-page-size=0x4000" \
           -DCMAKE_C_FLAGS="-Wno-cast-qual -Wno-error" \
           -DCMAKE_CXX_FLAGS="-fPIC -Wno-cast-qual -Wno-error"
 
-    - name: Build libc++
-      run: cmake --build build-${{ matrix.abi }}
+    - name: Build
+      run: cmake --build build
 
-    - name: Find built library
-      id: find-lib
-      run: |
-        LIB_PATH=$(find build-${{ matrix.abi }} -name "libc++_shared.so" | head -n 1)
-        echo "lib_path=$LIB_PATH" >> $GITHUB_OUTPUT
-
-    - name: Upload artifact
+    - name: Package artifact
       uses: actions/upload-artifact@v4
       with:
-        name: libcxx-${{ matrix.abi }}-16k
-        path: ${{ steps.find-lib.outputs.lib_path }}
+        name: libcxx-v7a-16k
+        path: build/**/*.so
