@@ -45,11 +45,11 @@ jobs:
         CC="$TOOLCHAIN_ROOT/bin/${TARGET_TRIPLE}${ANDROID_API}-clang"
         CXX="$TOOLCHAIN_ROOT/bin/${TARGET_TRIPLE}${ANDROID_API}-clang++"
 
-        # C/CXX 编译标志：重新引入 -isystem
-        # -D__USE_MINGW_ANSI_STDIO=1 和 -D_BSD_SOURCE 是一些可能帮助 libc++ 在类 UNIX 
-        # 环境（如 Android Bionic）中找到 C 函数声明的兼容性宏
-        C_FLAGS="-fPIC -Wno-cast-qual -Wno-error -isystem $BIONIC_INCLUDE_PATH -D_BSD_SOURCE"
-        CXX_FLAGS="-fPIC -Wno-cast-qual -Wno-error -isystem $BIONIC_INCLUDE_PATH -D__USE_MINGW_ANSI_STDIO=1 -D_BSD_SOURCE"
+        # C/CXX 编译标志：
+        # -isystem: 解决 C 函数可见性 (strcmp)
+        # -include <stddef.h>: 强制定义 size_t, 解决头文件循环依赖问题
+        C_FLAGS="-fPIC -Wno-cast-qual -Wno-error -isystem $BIONIC_INCLUDE_PATH -D_BSD_SOURCE -include <stddef.h>"
+        CXX_FLAGS="-fPIC -Wno-cast-qual -Wno-error -isystem $BIONIC_INCLUDE_PATH -D__USE_MINGW_ANSI_STDIO=1 -D_BSD_SOURCE -include <stddef.h>"
         
         cmake -S llvm-project/runtimes -B "$BUILD_DIR" \
           -G Ninja \
