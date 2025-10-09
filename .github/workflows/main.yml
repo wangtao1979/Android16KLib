@@ -11,20 +11,18 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      # 推荐使用较新的稳定版 NDK
-      NDK_VERSION: r21d # 或 r25c, r26b 等
+      NDK_VERSION: r21d # 保持 r21d
       ABI: armeabi-v7a
       ANDROID_API: 21
       BUILD_DIR: build
-      # 定义 NDK 路径，方便后续引用
-      NDK_ROOT: $HOME/android-ndk
+      NDK_ROOT: $HOME/android-ndk # 定义 NDK 路径
 
     steps:
     - name: Checkout LLVM
       uses: actions/checkout@v4
       with:
         repository: llvm/llvm-project
-        ref: llvmorg-12.0.0 # 保持 12.0.0，如果仍然有问题，可以尝试更新
+        ref: llvmorg-12.0.0 # 保持 12.0.0
         path: llvm-project
 
     - name: Install dependencies
@@ -34,22 +32,29 @@ jobs:
 
     - name: Download NDK
       run: |
-        # 针对 NDK 25.2.9519653 的下载链接
-        curl -LO https://dl.google.com/android/repository/android-ndk-r${NDK_VERSION}-linux-x86_64.zip
-        unzip android-ndk-r${NDK_VERSION}-linux-x86_64.zip -d $HOME
-        mv $HOME/android-ndk-r${NDK_VERSION} $NDK_ROOT
-        # 清理 zip 包
-        rm android-ndk-r${NDK_VERSION}-linux.zip
+        curl -LO https://dl.google.com/android/repository/android-ndk-${NDK_VERSION}-linux-x86_64.zip
+        unzip android-ndk-${NDK_VERSION}-linux-x86_64.zip -d $HOME
+        mv $HOME/android-ndk-${NDK_VERSION} $NDK_ROOT
+        rm android-ndk-${NDK_VERSION}-linux-x86_64.zip
 
     - name: Configure CMake (armeabi-v7a)
       run: |
-        # 获取 NDK 中的 Clang 编译器路径
-        export TOOLCHAIN_BIN=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin
-        export CXX=$TOOLCHAIN_BIN/armv7a-linux-androideabi$ANDROID_API-clang++
-        export CC=$TOOLCHAIN_BIN/armv7a-linux-androideabi$ANDROID_API-clang
-        export AR=$TOOLCHAIN_BIN/llvm-ar
-        export RANLIB=$TOOLCHAIN_BIN/llvm-ranlib
-        export STRIP=$TOOLCHAIN_BIN/llvm-strip
+        # NDK r21d 的工具链路径有所不同
+        # 这里的路径是基于 NDK r21d 的默认布局
+        export TOOLCHAIN_PATH=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin
+        export TRIPLE=armv7a-linux-androideabi # NDK r21d 的 target triple
+        export CLANG_BIN=$TOOLCHAIN_PATH/clang
+        export CLANGXX_BIN=$TOOLCHAIN_PATH/clang++
+
+        # 设置环境变量，确保 CMake 使用 NDK r21d 的 Clang
+        export CC=$CLANG_BIN
+        export CXX=$CLANGXX_BIN
+        export AR=$TOOLCHAIN_PATH/llvm-ar
+        export RANLIB=$TOOLCHAIN_PATH/llvm-ranlib
+        export STRIP=$TOOLCHAIN_PATH/llvm-strip
+
+        # NDK r21d 的 sysroot 路径
+        export SYSROOT=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot
 
         mkdir -p $BUILD_DIR
 
@@ -67,10 +72,24 @@ jobs:
           -DLIBCXXABI_USE_LLVM_UNWINDER=OFF \
           -DLIBCXX_USE_COMPILER_RT=ON \
           -DLIBCXX_INCLUDE_TESTS=OFF \
-          -DCMAKE_C_FLAGS="-fPIC -Wno-cast-qual -Wno-error" \
-          -DCMAKE_CXX_FLAGS="-fPIC -Wno-cast-qual -Wno-error -std=c++17 -D_LIBCPP_HAS_MUSL_LIBC" \
+          -DCMAKE_C_FLAGS="-fPIC -Wno-cast-qual -Wno-error --sysroot=$SYSROOT" \
+          -DCMAKE_CXX_FLAGS="-fPIC -Wno-cast-qual -Wno-error --sysroot=$SYSROOT -std=c++17 -D_LIBCPP_HAS_MUSL_LIBC" \
           -DCMAKE_SHARED_LINKER_FLAGS="-Wl,-z,max-page-size=0x4000" \
-          -DCMAKE_SYSROOT=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/sysroot
+          -DCMAKE_SYSTEM_NAME=Android \
+          -DCMAKE_SYSTEM_VERSION=$ANDROID_API \
+          -DCMAKE_ANDROID_ARCH_ABI=$ABI \
+          -DCMAKE_ANDROID_NDK=$NDK_ROOT \
+          -DCMAKE_ANDROID_STANDALONE_TOOLCHAIN=$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64 \
+          -DCMAKE_SYSROOT=$SYSROOT \
+          -DCMAKE_C_COMPILER_TARGET=$TRIPLE \
+          -DCMAKE_CXX_COMPILER_TARGET=$TRIPLE \
+          -DCMAKE_CROSSCOMPILE=TRUE \
+          -DLLVM_DEFAULT_TARGET_TRIPLE=$TRIPLE \
+          -DLIBCXX_ENABLE_LITE_MODE=ON # 尝试启用精简模式
+        # 移除了 NDK r21d 中不存在的 `armv7a-linux-androideabi$ANDROID_API-clang` 命名约定
+        # 直接使用 `clang` 和 `clang++`，并通过 `--sysroot` 明确指定
+        # 增加了一些针对 Android 交叉编译更明确的 CMake 变量设置
+        # 尝试启用 LIBCXX_ENABLE_LITE_MODE, 可能会减少对 C 库的依赖
 
     - name: Build libc++_shared
       run: cmake --build $BUILD_DIR --target cxxabi_shared cxx_shared -j$(nproc)
@@ -80,3 +99,8 @@ jobs:
       with:
         name: libcxx-v7a-optimized
         path: $BUILD_DIR/lib/*.so
+        # 或者更精确的路径，如：
+        # path: |
+        #   ${BUILD_DIR}/${ABI}/libcxxabi_shared/libc++abi.so
+        #   ${BUILD_DIR}/${ABI}/libcxx_shared/libc++_shared.so
+        # 具体路径需要查看构建后的目录结构
