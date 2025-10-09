@@ -37,14 +37,20 @@ jobs:
 
     - name: Configure CMake (armeabi-v7a)
       run: |
-        # 定义路径
+        # 路径定义
         TOOLCHAIN_ROOT="$HOME/android-ndk/toolchains/llvm/prebuilt/linux-x86_64"
         TARGET_TRIPLE="arm-linux-androideabi"
+        # NDK Bionic C 库头文件路径
         SYSROOT="$TOOLCHAIN_ROOT/sysroot"
+        BIONIC_INCLUDE_PATH="$SYSROOT/usr/include"
+        
         CC="$TOOLCHAIN_ROOT/bin/${TARGET_TRIPLE}${ANDROID_API}-clang"
         CXX="$TOOLCHAIN_ROOT/bin/${TARGET_TRIPLE}${ANDROID_API}-clang++"
 
-        # 确保每行末尾只有反斜杠，没有多余空格
+        # 核心修复：将 Bionic 头文件路径添加到 C/CXX 编译器的 Include 搜索路径中
+        C_FLAGS="-fPIC -Wno-cast-qual -Wno-error -isystem $BIONIC_INCLUDE_PATH"
+        CXX_FLAGS="-fPIC -Wno-cast-qual -Wno-error -isystem $BIONIC_INCLUDE_PATH"
+        
         cmake -S llvm-project/runtimes -B "$BUILD_DIR" \
           -G Ninja \
           -DCMAKE_TOOLCHAIN_FILE="$HOME/android-ndk/build/cmake/android.toolchain.cmake" \
@@ -64,8 +70,8 @@ jobs:
           -DLIBCXX_USE_COMPILER_RT_FOR_LIBC=ON \
           -DLIBCXX_NO_EXCEPTIONS=ON \
           -DLIBCXX_INCLUDE_TESTS=OFF \
-          -DCMAKE_C_FLAGS="-fPIC -Wno-cast-qual -Wno-error" \
-          -DCMAKE_CXX_FLAGS="-fPIC -Wno-cast-qual -Wno-error" \
+          -DCMAKE_C_FLAGS="$C_FLAGS" \
+          -DCMAKE_CXX_FLAGS="$CXX_FLAGS" \
           -DCMAKE_SHARED_LINKER_FLAGS="-Wl,-z,max-page-size=0x4000"
           
     - name: Build libc++_shared
