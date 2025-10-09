@@ -48,6 +48,22 @@ jobs:
         C_FLAGS="-fPIC -Wno-cast-qual -Wno-error"
         CXX_FLAGS="-fPIC -Wno-cast-qual -Wno-error"
         
+- name: Configure CMake (armeabi-v7a)
+      run: |
+        # 路径定义
+        TOOLCHAIN_ROOT="$HOME/android-ndk/toolchains/llvm/prebuilt/linux-x86_64"
+        TARGET_TRIPLE="arm-linux-androideabi"
+        SYSROOT="$TOOLCHAIN_ROOT/sysroot"
+        BIONIC_INCLUDE_PATH="$SYSROOT/usr/include"
+        CC="$TOOLCHAIN_ROOT/bin/${TARGET_TRIPLE}${ANDROID_API}-clang"
+        CXX="$TOOLCHAIN_ROOT/bin/${TARGET_TRIPLE}${ANDROID_API}-clang++"
+
+        # C/CXX 编译标志：重新引入 -isystem
+        # -D__USE_MINGW_ANSI_STDIO=1 和 -D_BSD_SOURCE 是一些可能帮助 libc++ 在类 UNIX 
+        # 环境（如 Android Bionic）中找到 C 函数声明的兼容性宏
+        C_FLAGS="-fPIC -Wno-cast-qual -Wno-error -isystem $BIONIC_INCLUDE_PATH -D_BSD_SOURCE"
+        CXX_FLAGS="-fPIC -Wno-cast-qual -Wno-error -isystem $BIONIC_INCLUDE_PATH -D__USE_MINGW_ANSI_STDIO=1 -D_BSD_SOURCE"
+        
         cmake -S llvm-project/runtimes -B "$BUILD_DIR" \
           -G Ninja \
           -DCMAKE_TOOLCHAIN_FILE="$HOME/android-ndk/build/cmake/android.toolchain.cmake" \
@@ -67,7 +83,6 @@ jobs:
           -DLIBCXX_USE_COMPILER_RT_FOR_LIBC=ON \
           -DLIBCXX_NO_EXCEPTIONS=ON \
           -DLIBCXX_INCLUDE_TESTS=OFF \
-          -DLIBCXX_BUILD_EXTERNAL_FUCNCTIONS=ON \
           -DCMAKE_C_FLAGS="$C_FLAGS" \
           -DCMAKE_CXX_FLAGS="$CXX_FLAGS" \
           -DCMAKE_SHARED_LINKER_FLAGS="-Wl,-z,max-page-size=0x4000"
