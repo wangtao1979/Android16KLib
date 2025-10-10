@@ -35,31 +35,43 @@ jobs:
         unzip android-ndk-${NDK_VERSION}-linux-x86_64.zip
         mv android-ndk-${NDK_VERSION} $HOME/android-ndk
         
-- name: Configure CMake (armeabi-v7a)
+    - name: Configure CMake (armeabi-v7a - 16KB Fix)
       run: |
         # 路径定义
         TOOLCHAIN_ROOT="$HOME/android-ndk/toolchains/llvm/prebuilt/linux-x86_64"
-        TARGET_TRIPLE="arm-linux-androideabi"
         SYSROOT="$TOOLCHAIN_ROOT/sysroot"
         BIONIC_INCLUDE_PATH="$SYSROOT/usr/include"
-        CC="$TOOLCHAIN_ROOT/bin/${TARGET_TRIPLE}${ANDROID_API}-clang"
-        CXX="$TOOLCHAIN_ROOT/bin/${TARGET_TRIPLE}${ANDROID_API}-clang++"
+        
+        # 使用 armv7 的三元组
+        TARGET_TRIPLE="armv7-none-linux-androideabi" 
+        
+        # 编译器路径 (确保 API 级别正确，这里用 21 作为例子)
+        ANDROID_API=21 
+        CC="$TOOLCHAIN_ROOT/bin/arm-linux-androideabi${ANDROID_API}-clang"
+        CXX="$TOOLCHAIN_ROOT/bin/arm-linux-androideabi${ANDROID_API}-clang++"
 
-        # C 编译标志：仅使用必需的宏和 -isystem
+        # C 编译标志：仅保留基本的 PIC 和错误抑制，确保通过 C/CXX 编译器测试
         C_FLAGS="-fPIC -Wno-cast-qual -Wno-error -isystem $BIONIC_INCLUDE_PATH -D_BSD_SOURCE"
         
-        # CXX 编译标志：仅使用必需的宏和 -isystem。移除 -include <stddef.h>
+        # CXX 编译标志：同上，不包含 -include <stddef.h> 
         CXX_FLAGS="-fPIC -Wno-cast-qual -Wno-error -isystem $BIONIC_INCLUDE_PATH -D__USE_MINGW_ANSI_STDIO=1 -D_BSD_SOURCE"
         
+        # **链接器标志：强制 64KB 对齐以满足 16KB 要求 (核心)**
+        LINKER_FLAGS="-Wl,-z,max-page-size=65536"
+        
+        # 编译目录
+        BUILD_DIR="build/armv7a_libcxx"
+
         cmake -S llvm-project/runtimes -B "$BUILD_DIR" \
           -G Ninja \
           -DCMAKE_TOOLCHAIN_FILE="$HOME/android-ndk/build/cmake/android.toolchain.cmake" \
-          -DANDROID_ABI="$ABI" \
+          -DANDROID_ABI="armeabi-v7a" \
           -DANDROID_PLATFORM="$ANDROID_API" \
           -DCMAKE_BUILD_TYPE=Release \
           -DCMAKE_C_COMPILER="$CC" \
           -DCMAKE_CXX_COMPILER="$CXX" \
           -DCMAKE_SYSROOT="$SYSROOT" \
+          \
           -DLLVM_ENABLE_RUNTIMES="libcxx;libcxxabi" \
           -DLIBCXX_ENABLE_SHARED=ON \
           -DLIBCXX_ENABLE_STATIC=OFF \
@@ -70,9 +82,10 @@ jobs:
           -DLIBCXX_USE_COMPILER_RT_FOR_LIBC=ON \
           -DLIBCXX_NO_EXCEPTIONS=ON \
           -DLIBCXX_INCLUDE_TESTS=OFF \
+          \
           -DCMAKE_C_FLAGS="$C_FLAGS" \
           -DCMAKE_CXX_FLAGS="$CXX_FLAGS" \
-          -DCMAKE_SHARED_LINKER_FLAGS="-Wl,-z,max-page-size=0x4000"
+          -DCMAKE_SHARED_LINKER_FLAGS="$LINKER_FLAGS"
           
     - name: Build libc++_shared
       run: cmake --build $BUILD_DIR --target cxxabi_shared cxx_shared -j$(nproc)
